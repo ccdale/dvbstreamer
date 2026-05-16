@@ -382,9 +382,11 @@ static int parsezapline(char * str, DVBDeliverySystem_e delSys)
     unsigned long freq;
     char *field, *tmp;
     char *name;
+    char *videoPIDField = NULL;
+    bool videoPIDFieldPrefetched = FALSE;
     int id;
     int source;
-    Multiplex_t *mux;
+    Multiplex_t *mux = NULL;
     DVBDeliverySystem_e muxDelSys = delSys;
     
     tmp = str;
@@ -598,6 +600,8 @@ static int parsezapline(char * str, DVBDeliverySystem_e delSys)
             PARAMADD("Hierarchy: %s\n", find_param(hierarchy_list, field));
             break;
         case DELSYS_DVBT2:
+        {
+            bool legacyDVBTOrder;
             /* DVB-T2 frequency is usually in Hz, but allow kHz input too. */
             if (freq < 1000000)
             {
@@ -605,47 +609,91 @@ static int parsezapline(char * str, DVBDeliverySystem_e delSys)
             }
             SETFREQ(freq);
 
-            /* bandwidth */
             NEXTFIELD();
-            PARAMADD("Bandwidth: %s\n", find_param_or_default(bw_list, field, field));
+            legacyDVBTOrder = (strncasecmp(field, "INVERSION_", 10) == 0) ||
+                              (strcasecmp(field, "AUTO") == 0) ||
+                              (strcasecmp(field, "ON") == 0) ||
+                              (strcasecmp(field, "OFF") == 0);
 
-            /* modulation */
-            NEXTFIELD();
-            PARAMADD("Modulation: %s\n", find_param_or_default(modulation_list, field, field));
-
-            /* transmission mode */
-            NEXTFIELD();
-            PARAMADD("Transmission Mode: %s\n", find_param_or_default(transmissionmode_list, field, field));
-
-            /* guard interval */
-            NEXTFIELD();
-            PARAMADD("Guard Interval: %s\n", find_param_or_default(guard_list, field, field));
-
-            /* fec hp */
-            NEXTFIELD();
-            PARAMADD("FEC HP: %s\n", find_param_or_default(fec_list, field, field));
-
-            /* fec lp */
-            NEXTFIELD();
-            PARAMADD("FEC LP: %s\n", find_param_or_default(fec_list, field, field));
-
-            /* inversion */
-            NEXTFIELD();
-            PARAMADD("Inversion: %s\n", find_param_or_default(inversion_list, field, field));
-
-            /* optional plp id */
-            NEXTFIELD();
-            if (field[0] && (strcmp(field, "0") == 0 || isdigit(field[0])))
+            if (legacyDVBTOrder)
             {
-                PARAMADD("PLP Number: %lu\n", strtoul(field, NULL, 0));
+                /* Legacy channels.conf order:
+                 * inversion, bandwidth, fec_hp, fec_lp, modulation,
+                 * transmission mode, guard interval, hierarchy
+                 */
+                PARAMADD("Inversion: %s\n", find_param_or_default(inversion_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Bandwidth: %s\n", find_param_or_default(bw_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("FEC HP: %s\n", find_param_or_default(fec_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("FEC LP: %s\n", find_param_or_default(fec_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Modulation: %s\n", find_param_or_default(modulation_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Transmission Mode: %s\n", find_param_or_default(transmissionmode_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Guard Interval: %s\n", find_param_or_default(guard_list, field, field));
+
+                /* hierarchy exists in DVB-T style files but is ignored for DVB-T2 */
+                NEXTFIELD();
+
+                /* Legacy terrestrial files do not carry PLP as a separate field. */
+                PARAMADD("PLP Number: 0\n");
+
+                /* Preserve the first PID field consumed while probing optional PLP. */
+                NEXTFIELD();
+                videoPIDField = field;
+                videoPIDFieldPrefetched = TRUE;
             }
             else
             {
-                PARAMADD("PLP Number: 0\n");
-                /* No PLP supplied; consume this as video pid field. */
-                goto parsezap_video_audio_service_fields;
+                /* T2-oriented order:
+                 * bandwidth, modulation, transmission mode, guard interval,
+                 * fec_hp, fec_lp, inversion
+                 */
+                PARAMADD("Bandwidth: %s\n", find_param_or_default(bw_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Modulation: %s\n", find_param_or_default(modulation_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Transmission Mode: %s\n", find_param_or_default(transmissionmode_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Guard Interval: %s\n", find_param_or_default(guard_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("FEC HP: %s\n", find_param_or_default(fec_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("FEC LP: %s\n", find_param_or_default(fec_list, field, field));
+
+                NEXTFIELD();
+                PARAMADD("Inversion: %s\n", find_param_or_default(inversion_list, field, field));
+
+                /* optional plp id */
+                NEXTFIELD();
+                if (field[0] && (strcmp(field, "0") == 0 || isdigit(field[0])))
+                {
+                    PARAMADD("PLP Number: %lu\n", strtoul(field, NULL, 0));
+                }
+                else
+                {
+                    PARAMADD("PLP Number: 0\n");
+                    /* No PLP supplied; this token is actually the video PID. */
+                    videoPIDField = field;
+                    videoPIDFieldPrefetched = TRUE;
+                }
             }
             break;
+            }
 #if defined(ENABLE_ATSC)            
         case DELSYS_ATSC:
             SETFREQ(freq);
@@ -699,9 +747,23 @@ static int parsezapline(char * str, DVBDeliverySystem_e delSys)
         MultiplexAdd(muxDelSys, params, &mux);
     }
 
+    if (!mux)
+    {
+        LogModule(LOG_ERROR, PARSEZAP, "Failed to add/find multiplex for service \"%s\"\n", name);
+        free(name);
+        return -1;
+    }
+
 parsezap_video_audio_service_fields:
     /* Video PID - not used */
-    NEXTFIELD();
+    if (videoPIDFieldPrefetched)
+    {
+        field = videoPIDField;
+    }
+    else
+    {
+        NEXTFIELD();
+    }
     /* Audio PID - not used */
     NEXTFIELD();
 
