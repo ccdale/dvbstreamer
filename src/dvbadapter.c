@@ -46,6 +46,7 @@ Opens/Closes and setups dvb adapter for use in the rest of the application.
 #include "events.h"
 #include "properties.h"
 #include "dispatchers.h"
+#include <ctype.h>
 #include "yamlutils.h"
 
 /*******************************************************************************
@@ -66,6 +67,13 @@ Opens/Closes and setups dvb adapter for use in the rest of the application.
 
 #ifdef DTV_ISDBT_LAYER_ENABLED
 #define HAVE_FULL_ISBDT
+#endif
+#if !defined(DTV_PLP_NUMBER)
+#if defined(DTV_STREAM_ID)
+#define DTV_PLP_NUMBER DTV_STREAM_ID
+#elif defined(DTV_DVBT2_PLP_ID_LEGACY)
+#define DTV_PLP_NUMBER DTV_DVBT2_PLP_ID_LEGACY
+#endif
 #endif
 
 
@@ -97,6 +105,14 @@ Opens/Closes and setups dvb adapter for use in the rest of the application.
 #define PROP_IDX_DVBT_TRANSMISSION_MODE 8
 #define PROP_IDX_DVBT_HIERARCHY         9
 #define PROP_COUNT_DVBT                10
+#define PROP_IDX_DVBT2_BANDWIDTH         3
+#define PROP_IDX_DVBT2_CODE_RATE_HP      4
+#define PROP_IDX_DVBT2_CODE_RATE_LP      5
+#define PROP_IDX_DVBT2_MODULATION        6
+#define PROP_IDX_DVBT2_GUARD_INTERVAL    7
+#define PROP_IDX_DVBT2_TRANSMISSION_MODE 8
+#define PROP_IDX_DVBT2_PLP_NUMBER        9
+#define PROP_COUNT_DVBT2                10
 
 #define PROP_IDX_ATSC_MODULATION  3
 #define PROP_COUNT_ATSC           4
@@ -280,6 +296,7 @@ static const char TAG_HIERARCHY[]        = "Hierarchy";
 static const char TAG_POLARISATION[]     = "Polarisation";
 static const char TAG_SATELLITE_NUMBER[] = "Satellite Number";
 static const char TAG_ROLL_OFF[]         = "Roll Off";
+static const char TAG_PLP_NUMBER[]       = "PLP Number";
 static const char TAG_PILOT[]            = "Pilot";
 
 static StringToParamMapping_t modulationMapping[] = {
@@ -328,21 +345,31 @@ static StringToParamMapping_t fecMapping[] = {
 
 static StringToParamMapping_t transmissonModeMapping[] = {
     {"2k", TRANSMISSION_MODE_2K}, {"2000", TRANSMISSION_MODE_2K},
-    {"8k", TRANSMISSION_MODE_8K}, {"8000", TRANSMISSION_MODE_2K},
+#ifdef TRANSMISSION_MODE_4K
+    {"4k", TRANSMISSION_MODE_4K}, {"4000", TRANSMISSION_MODE_4K},
+#endif
+    {"8k", TRANSMISSION_MODE_8K}, {"8000", TRANSMISSION_MODE_8K},
     {"AUTO", TRANSMISSION_MODE_AUTO},
     STRINGTOPARAMMAPPING_SENTINEL
 };
 
 static StringToParamMapping_t bandwidthMapping[] = {
-    {"8Mhz", BANDWIDTH_8_MHZ}, {"8000000", BANDWIDTH_8_MHZ}, {"8Mhz", BANDWIDTH_8_MHZ},
+    {"8Mhz", BANDWIDTH_8_MHZ}, {"8000000", BANDWIDTH_8_MHZ}, {"8MHz", BANDWIDTH_8_MHZ},
     {"7Mhz", BANDWIDTH_7_MHZ}, {"7000000", BANDWIDTH_7_MHZ},
     {"6Mhz", BANDWIDTH_6_MHZ}, {"6000000", BANDWIDTH_6_MHZ},
     {"AUTO", BANDWIDTH_AUTO},
     STRINGTOPARAMMAPPING_SENTINEL
 };
-
-
 static StringToParamMapping_t guardIntervalMapping[] = {
+#ifdef GUARD_INTERVAL_1_128
+    {"1/128", GUARD_INTERVAL_1_128},
+#endif
+#ifdef GUARD_INTERVAL_19_128
+    {"19/128", GUARD_INTERVAL_19_128},
+#endif
+#ifdef GUARD_INTERVAL_19_256
+    {"19/256", GUARD_INTERVAL_19_256},
+#endif
     {"1/32", GUARD_INTERVAL_1_32},
     {"1/16", GUARD_INTERVAL_1_16},
     {"1/8", GUARD_INTERVAL_1_8},
@@ -1694,23 +1721,34 @@ static void ConvertFEParamsToYaml(DVBDeliverySystem_e delSys, struct dvb_fronten
 static uint32_t ConvertStringToBandwith(const char *str, uint32_t defaultValue)
 {
     char *suffix;
-    uint32_t result = strtoul(str, &suffix, 10);
+    double value = strtod(str, &suffix);
+
     if (suffix == str)
     {
-        result = defaultValue;
+        return defaultValue;
     }
-    else if (*suffix)
+
+    while (*suffix && isspace(*suffix))
     {
-        if (strcasecmp(suffix, "Mhz") == 0)
-        {
-            result *= 1000000;
-        }
-        else
-        {
-            result = defaultValue;
-        }
+        suffix++;
     }
-    return result;
+
+    if (!*suffix)
+    {
+        return (uint32_t)value;
+    }
+
+    if ((strcasecmp(suffix, "Mhz") == 0) || (strcasecmp(suffix, "MHz") == 0))
+    {
+        return (uint32_t)(value * 1000000.0);
+    }
+
+    if (strcasecmp(suffix, "Hz") == 0)
+    {
+        return (uint32_t)value;
+    }
+
+    return defaultValue;
 }
 
 static void ConvertYamlToDTVProperties(DVBDeliverySystem_e delSys, yaml_document_t *doc, DVBAdapter_t *adapter)
@@ -1764,6 +1802,27 @@ static void ConvertYamlToDTVProperties(DVBDeliverySystem_e delSys, yaml_document
             SET_U32_PROPERTY(PROP_IDX_DVBT_HIERARCHY, DTV_HIERARCHY, MapYamlNode(doc, TAG_HIERARCHY, hierarchyMapping, HIERARCHY_AUTO));
             adapter->frontEndProperties.num = PROP_COUNT_DVBT;
             break;
+        case DELSYS_DVBT2:
+        {
+            uint32_t modulation = MapYamlNode(doc, TAG_MODULATION, modulationMapping,
+                MapYamlNode(doc, TAG_CONSTELLATION, modulationMapping, QAM_AUTO));
+
+            SET_U32_PROPERTY(PROP_IDX_DELSYS, DTV_DELIVERY_SYSTEM, SYS_DVBT2);
+            SET_U32_PROPERTY(PROP_IDX_DVBT2_BANDWIDTH, DTV_BANDWIDTH_HZ, ConvertYamlNode(doc, TAG_BANDWIDTH, ConvertStringToBandwith, 0));
+            SET_U32_PROPERTY(PROP_IDX_DVBT2_CODE_RATE_HP, DTV_CODE_RATE_HP, MapYamlNode(doc, TAG_FEC_HP, fecMapping, FEC_AUTO));
+            SET_U32_PROPERTY(PROP_IDX_DVBT2_CODE_RATE_LP, DTV_CODE_RATE_LP, MapYamlNode(doc, TAG_FEC_LP, fecMapping, FEC_AUTO));
+            SET_U32_PROPERTY(PROP_IDX_DVBT2_MODULATION, DTV_MODULATION, modulation);
+            SET_U32_PROPERTY(PROP_IDX_DVBT2_GUARD_INTERVAL, DTV_GUARD_INTERVAL, MapYamlNode(doc, TAG_GUARD_INTERVAL, guardIntervalMapping, GUARD_INTERVAL_AUTO));
+            SET_U32_PROPERTY(PROP_IDX_DVBT2_TRANSMISSION_MODE, DTV_TRANSMISSION_MODE, MapYamlNode(doc, TAG_TRANSMISSION_MODE, transmissonModeMapping, TRANSMISSION_MODE_AUTO));
+#ifdef DTV_PLP_NUMBER
+            SET_U32_PROPERTY(PROP_IDX_DVBT2_PLP_NUMBER, DTV_PLP_NUMBER, ConvertYamlNode(doc, TAG_PLP_NUMBER, ConvertStringToUInt32, 0));
+#else
+            adapter->frontEndPropertyArray[PROP_IDX_DVBT2_PLP_NUMBER].cmd = DTV_MAX_COMMAND;
+            adapter->frontEndPropertyArray[PROP_IDX_DVBT2_PLP_NUMBER].u.data = 0;
+#endif
+            adapter->frontEndProperties.num = PROP_COUNT_DVBT2;
+            break;
+        }
         case DELSYS_ATSC:
             SET_U32_PROPERTY(PROP_IDX_DELSYS, DTV_DELIVERY_SYSTEM, SYS_ATSC);
             SET_U32_PROPERTY(PROP_IDX_ATSC_MODULATION, DTV_MODULATION, MapYamlNode(doc, TAG_MODULATION, modulationMapping, QAM_AUTO));
@@ -1856,6 +1915,22 @@ static void ConvertDTVPropertiesToYaml(DVBDeliverySystem_e delSys, struct dtv_pr
                 MapValueToString(transmissonModeMapping, GET_U32_PROP(PROP_IDX_DVBT_TRANSMISSION_MODE), "AUTO"));
             YamlUtils_MappingAdd(doc, 1, TAG_HIERARCHY,
                 MapValueToString(hierarchyMapping, GET_U32_PROP(PROP_IDX_DVBT_HIERARCHY), "AUTO"));
+            break;
+        case DELSYS_DVBT2:
+            sprintf(temp, "%u", GET_U32_PROP(PROP_IDX_DVBT2_BANDWIDTH));
+            YamlUtils_MappingAdd(doc, 1, TAG_BANDWIDTH, temp);
+            YamlUtils_MappingAdd(doc, 1, TAG_FEC_HP,
+                MapValueToString(fecMapping, GET_U32_PROP(PROP_IDX_DVBT2_CODE_RATE_HP), "AUTO"));
+            YamlUtils_MappingAdd(doc, 1, TAG_FEC_LP,
+                MapValueToString(fecMapping, GET_U32_PROP(PROP_IDX_DVBT2_CODE_RATE_LP), "AUTO"));
+            YamlUtils_MappingAdd(doc, 1, TAG_MODULATION,
+                MapValueToString(modulationMapping, GET_U32_PROP(PROP_IDX_DVBT2_MODULATION), "AUTO"));
+            YamlUtils_MappingAdd(doc, 1, TAG_GUARD_INTERVAL,
+                MapValueToString(guardIntervalMapping, GET_U32_PROP(PROP_IDX_DVBT2_GUARD_INTERVAL), "AUTO"));
+            YamlUtils_MappingAdd(doc, 1, TAG_TRANSMISSION_MODE,
+                MapValueToString(transmissonModeMapping, GET_U32_PROP(PROP_IDX_DVBT2_TRANSMISSION_MODE), "AUTO"));
+            sprintf(temp, "%u", GET_U32_PROP(PROP_IDX_DVBT2_PLP_NUMBER));
+            YamlUtils_MappingAdd(doc, 1, TAG_PLP_NUMBER, temp);
             break;
         case DELSYS_ATSC:
             YamlUtils_MappingAdd(doc, 1, TAG_MODULATION,
