@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     while (TRUE)
     {
         int c;
-        c = getopt(argc, argv, "vVdro:a:t:s:S:c:A:l:hL:i:");
+        c = getopt(argc, argv, "vVdro:a:t:2:s:S:c:A:l:hL:i:");
         if (c == -1)
         {
             break;
@@ -121,6 +121,10 @@ int main(int argc, char *argv[])
             case 't':
                 channelsFile = optarg;
                 channelsFileType = DELSYS_DVBT;
+                break;
+            case '2':
+                channelsFile = optarg;
+                channelsFileType = DELSYS_DVBT2;
                 break;
             case 's':
                 channelsFile = optarg;
@@ -276,6 +280,9 @@ static void usage(char *appname)
 #if defined(ENABLE_DVB)
             "      -t <file>     : Terrestrial channels.conf file to import services and \n"
             "                      multiplexes from. (DVB-T)\n"
+            "\n"
+            "      -2 <file>     : Terrestrial channels.conf file to import services and \n"
+            "                      multiplexes from. (DVB-T2)\n"
             "\n"
             "      -s <file>     : Satellite channels.conf file to import services and \n"
             "                      multiplexes from.(DVB-S)\n"

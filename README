@@ -49,6 +49,11 @@ command:
 
 setupdvbstreamer -t channels.conf
 
+To setup dvbstreamer to use a DVB-T2 terrestrial tuner on adapter 0 use the
+following command:
+
+setupdvbstreamer -2 channels.conf
+
 To setup dvbstreamer to use a satellite tuner on adapter 0 use the following 
 command:
 
