@@ -12,10 +12,10 @@ dvbstreamerdoc_DATA = \
 	NEWS\
 	TODO
 
-pkginclude_DATA = \
-    config.h
+nodist_pkginclude_HEADERS = \
+	config.h
 
-EXTRA_DIST = $(dvbstreamerdoc_DATA) $(pkginclude_DATA)
+EXTRA_DIST = $(dvbstreamerdoc_DATA)
 
 # Copy all the spec files. Of cource, only one is actually used.
 dist-hook:
