@@ -4,7 +4,7 @@ SUBDIRS = include include/dvbpsi src/dvbpsi src src/plugins
 
 dvbstreamerdocdir = ${prefix}/doc/DVBStreamer
 dvbstreamerdoc_DATA = \
-	README\
+	README.md\
 	COPYING\
 	AUTHORS\
 	ChangeLog\
