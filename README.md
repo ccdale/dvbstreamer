@@ -59,6 +59,19 @@ make install
 Before you can use dvbstreamer, initialize its service database using a channels.conf
 file produced by scan tools.
 
+Note: `setupdvbstreamer` expects legacy zap/VDR style channels files, not the native
+section-based dvbv5 output format. If you scan with `dvbv5-scan`, export as:
+
+```bash
+dvbv5-scan -O zap -o channels.conf <initial-file>
+```
+
+or:
+
+```bash
+dvbv5-scan -O vdr -o channels.conf <initial-file>
+```
+
 When you have a channels.conf file, run setupdvbstreamer with the file you created.
 
 DVB-T:

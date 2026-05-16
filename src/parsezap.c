@@ -188,6 +188,7 @@ int parsezapfile(char *path, DVBDeliverySystem_e delSys)
 {
     FILE      *f;
     char       str[255];
+    char      *lineStart;
     int        result;
     int        line = 0;
     
@@ -200,6 +201,33 @@ int parsezapfile(char *path, DVBDeliverySystem_e delSys)
     
     while ( fgets (str, sizeof(str), f))
     {
+        lineStart = str;
+        while (*lineStart && isspace((unsigned char)*lineStart))
+        {
+            lineStart++;
+        }
+
+        /* Ignore empty and comment lines. */
+        if ((*lineStart == '\0') || (*lineStart == '\n') || (*lineStart == '#') || (*lineStart == ';'))
+        {
+            line++;
+            continue;
+        }
+
+        /* dvbv5 files are section/key-value based and are not parsed by this importer. */
+        if (*lineStart == '[')
+        {
+            fprintf(stderr,
+                    "Unsupported dvbv5 config format detected at line %d.\n"
+                    "Please export scan results in legacy zap/vdr format, e.g.:\n"
+                    "  dvbv5-scan -O zap -o channels.conf <initial-file>\n"
+                    "or:\n"
+                    "  dvbv5-scan -O vdr -o channels.conf <initial-file>\n",
+                    line + 1);
+            fclose(f);
+            return 0;
+        }
+
         result = parsezapline(str, delSys);
         if (result == -1)
         {
