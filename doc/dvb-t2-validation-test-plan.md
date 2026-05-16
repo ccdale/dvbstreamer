@@ -86,6 +86,32 @@ Pass criteria:
 - Build completes with exit code 0.
 - `src/dvbstreamer` and `src/setupdvbstreamer` are present.
 
+## Git Update Hygiene (Before `git pull`)
+
+On test/build machines, local autotools runs may modify generated files (especially `configure`).
+If `git pull` fails with "local changes would be overwritten", use one of the flows below.
+
+Discard local generated changes:
+
+```bash
+git status
+git restore configure
+git clean -fd
+git pull --ff-only
+```
+
+Keep local changes temporarily:
+
+```bash
+git stash push -u
+git pull --ff-only
+git stash pop
+```
+
+Note:
+
+- Prefer the discard flow for generated artifacts on dedicated build machines.
+
 ## Test Cases
 
 ### TC1: Setup Import for DVB-T2 (`-2` flag)
