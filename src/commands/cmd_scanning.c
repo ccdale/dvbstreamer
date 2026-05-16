@@ -221,6 +221,7 @@ Command_t CommandDetailsScanning[] =
         "Performs a network scan using the initial tuning data provided this is in the same format as supplied in the initial tuning data files supplied with the dvb-utils from linuxtv.org.\n"
         "The tuning data should be quoted, ie\n"
         "scan net \"T 489833000 8MHz 3/4 NONE QAM16 2k 1/32 NONE\"\n"
+        "scan net \"T2 490000000 8MHz 64QAM 8k 1/32 2/3 1/2 AUTO 0\"\n"
         "Networks can be scan by calling this command more than once with different initial tuning data.\n",
         CommandScan
     },
@@ -953,6 +954,8 @@ static void ScanNetwork(char *initialdata)
     char transModeStr[5];
     char guardIntStr[5];
     char hierarchyStr[5];
+    char inversionStr[16];
+    unsigned int plpNumber = 0;
     char polarisationStr[2];
 #endif
     char params[256];
@@ -969,6 +972,9 @@ static void ScanNetwork(char *initialdata)
      *
      * DVB-T
      * T freq bw fec_hi fec_lo mod transmission-mode guard-interval hierarchy
+        *
+        * DVB-T2
+        * T2 freq bw mod transmission-mode guard-interval fec_hi fec_lo inversion [plp]
      *
      * DVB-C
      * C freq sr fec mod
@@ -979,7 +985,11 @@ static void ScanNetwork(char *initialdata)
      * ATSC
      * A freq mod
      */
-    switch (initialdata[0])
+    if (strncmp(initialdata, "T2 ", 3) == 0)
+    {
+        delSys = DELSYS_DVBT2;
+    }
+    else switch (initialdata[0])
     {
         case 'T': delSys = DELSYS_DVBT; break;
         case 'S': delSys = DELSYS_DVBS; break;
@@ -1028,6 +1038,37 @@ static void ScanNetwork(char *initialdata)
                                 transModeStr,
                                 guardIntStr,
                                 hierarchyStr);
+                muxFindRange = 166670;
+                parsed = TRUE;
+            }
+            break;
+
+        case DELSYS_DVBT2:
+            if (sscanf(initialdata, "T2 %u %4s %6s %4s %6s %4s %4s %15s %u",
+                    &frequency, bwStr, modStr, transModeStr, guardIntStr, fecHiStr, fecLoStr, inversionStr, &plpNumber) >= 8)
+            {
+                if (plpNumber > 255)
+                {
+                    plpNumber = 0;
+                }
+                sprintf(params, "Frequency: %u\n"
+                                "Inversion: %s\n"
+                                "Bandwidth: %s\n"
+                                "Modulation: %s\n"
+                                "Transmission Mode: %s\n"
+                                "Guard Interval: %s\n"
+                                "FEC HP: %s\n"
+                                "FEC LP: %s\n"
+                                "PLP Number: %u\n",
+                                frequency,
+                                inversionStr,
+                                bwStr,
+                                modStr,
+                                transModeStr,
+                                guardIntStr,
+                                fecHiStr,
+                                fecLoStr,
+                                plpNumber);
                 muxFindRange = 166670;
                 parsed = TRUE;
             }

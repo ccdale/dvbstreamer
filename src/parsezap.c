@@ -56,6 +56,7 @@ typedef struct
 *******************************************************************************/
 
 static char *find_param(const Param *list, const char *name);
+static const char *find_param_or_default(const Param *list, const char *name, const char *defaultValue);
 static int findMultiplex(DVBDeliverySystem_e delSys, char *freq, char *polarisation, char *satelliteNumber, Multiplex_t **mux);
 static int parsezapline(char * str, DVBDeliverySystem_e delSys);
 
@@ -223,6 +224,12 @@ static char * find_param(const Param *list, const char *name)
         list++;
     }
     return list->value;;
+}
+
+static const char *find_param_or_default(const Param *list, const char *name, const char *defaultValue)
+{
+    char *mapped = find_param(list, name);
+    return mapped ? mapped : defaultValue;
 }
 
 static char *find_vdr_param(const VDRParam *list, char *field, char **next)
@@ -562,6 +569,55 @@ static int parsezapline(char * str, DVBDeliverySystem_e delSys)
             NEXTFIELD();
             PARAMADD("Hierarchy: %s\n", find_param(hierarchy_list, field));
             break;
+        case DELSYS_DVBT2:
+            /* DVB-T2 frequency is usually in Hz, but allow kHz input too. */
+            if (freq < 1000000)
+            {
+                freq *= 1000;
+            }
+            SETFREQ(freq);
+
+            /* bandwidth */
+            NEXTFIELD();
+            PARAMADD("Bandwidth: %s\n", find_param_or_default(bw_list, field, field));
+
+            /* modulation */
+            NEXTFIELD();
+            PARAMADD("Modulation: %s\n", find_param_or_default(modulation_list, field, field));
+
+            /* transmission mode */
+            NEXTFIELD();
+            PARAMADD("Transmission Mode: %s\n", find_param_or_default(transmissionmode_list, field, field));
+
+            /* guard interval */
+            NEXTFIELD();
+            PARAMADD("Guard Interval: %s\n", find_param_or_default(guard_list, field, field));
+
+            /* fec hp */
+            NEXTFIELD();
+            PARAMADD("FEC HP: %s\n", find_param_or_default(fec_list, field, field));
+
+            /* fec lp */
+            NEXTFIELD();
+            PARAMADD("FEC LP: %s\n", find_param_or_default(fec_list, field, field));
+
+            /* inversion */
+            NEXTFIELD();
+            PARAMADD("Inversion: %s\n", find_param_or_default(inversion_list, field, field));
+
+            /* optional plp id */
+            NEXTFIELD();
+            if (field[0] && (strcmp(field, "0") == 0 || isdigit(field[0])))
+            {
+                PARAMADD("PLP Number: %lu\n", strtoul(field, NULL, 0));
+            }
+            else
+            {
+                PARAMADD("PLP Number: 0\n");
+                /* No PLP supplied; consume this as video pid field. */
+                goto parsezap_video_audio_service_fields;
+            }
+            break;
 #if defined(ENABLE_ATSC)            
         case DELSYS_ATSC:
             SETFREQ(freq);
@@ -615,6 +671,7 @@ static int parsezapline(char * str, DVBDeliverySystem_e delSys)
         MultiplexAdd(muxDelSys, params, &mux);
     }
 
+parsezap_video_audio_service_fields:
     /* Video PID - not used */
     NEXTFIELD();
     /* Audio PID - not used */
