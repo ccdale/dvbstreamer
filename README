@@ -15,6 +15,28 @@ DVBStreamer requires the following libraries:
  - libltdl (>= 2.2.6b)
  - libyaml 
 
+Debian/Ubuntu Build Dependencies
+--------------------------------
+On Debian-based systems, install build tools and development headers with:
+
+sudo apt update
+sudo apt install -y \
+  build-essential \
+  autoconf \
+  automake \
+  libtool \
+  pkg-config \
+  sqlite3 \
+  libsqlite3-dev \
+  libreadline-dev \
+  libltdl-dev \
+  libyaml-dev
+
+Optional, useful tools:
+
+- dvb-tools (for dvbv5-scan and related utilities)
+- v4l-utils (often contains DVB utilities on some releases)
+
 
 Installation
 ------------
