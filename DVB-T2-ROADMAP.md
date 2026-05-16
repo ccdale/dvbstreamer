@@ -288,3 +288,4 @@ These features are optional and can be implemented after basic DVB-T2 support is
 - Hardware with DVB-T2 capability is required for practical testing
 - The implementation should maintain code style and architecture consistency with existing dvbstreamer code
 - Consider contributing improvements back to the dvbstreamer project or documenting any divergences
+- Post-release housekeeping: modernize autotools metadata (`configure.in` -> `configure.ac`) and remove deprecated macro usage (for example `STDC_HEADERS`) once the release is validated

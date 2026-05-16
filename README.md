@@ -12,6 +12,7 @@ DVBStreamer requires the following libraries:
 
 - sqlite3 (>= 3.3)
 - readline
+- libev
 - libltdl (>= 2.2.6b)
 - libyaml
 
@@ -27,6 +28,8 @@ sudo apt install -y \
   automake \
   libtool \
   pkg-config \
+  libev4 \
+  libev-dev \
   sqlite3 \
   libsqlite3-dev \
   libreadline-dev \

@@ -5,3 +5,10 @@ EIT decoding, simple EPG program.
 fastCGI application to allow multiple dvbstreamer to be control from a web page.
 PVR application, using RTSP to control playback and buffer to disk.
 
+Release Follow-Up
+-----------------
+After a releasable build is confirmed, schedule autotools technical-debt cleanup:
+- Rename configure.in to configure.ac.
+- Replace obsolete STDC_HEADERS usage and related legacy macros.
+- Re-run and verify autogen.sh, configure, and make on Debian/Ubuntu.
+
