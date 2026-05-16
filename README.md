@@ -30,6 +30,7 @@ sudo apt install -y \
   pkg-config \
   libev4 \
   libev-dev \
+  zlib1g-dev \
   sqlite3 \
   libsqlite3-dev \
   libreadline-dev \
