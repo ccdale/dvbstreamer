@@ -1,0 +1,71 @@
+# Build artifacts
+*.o
+*.a
+*.so
+*.so.*
+*.la
+*.lo
+.deps/
+.libs/
+
+# Compiled binaries
+dvbstreamer
+setupdvbstreamer
+convertdvbdb
+
+# Autotools generated files
+Makefile
+Makefile.in
+config.status
+config.log
+config.h
+config.h.in~
+stamp-h1
+aclocal.m4
+configure
+compile
+depcomp
+install-sh
+ltmain.sh
+missing
+config.sub
+config.guess
+autom4te.cache/
+
+# Libtool
+.libtool/
+ltmain.sh
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test and database files
+*.db
+test/epgdb
+
+# Documentation
+doxygen-html/
+doc/html/
+doc/latex/
+
+# Patch files
+*.patch
+*.rej
+
+# Distribution
+dist/
+*.tar.*
+
+# Memory/debug files
+*.core
+core.*
+vgcore.*
+
+# Environment
+.env
+.env.local
