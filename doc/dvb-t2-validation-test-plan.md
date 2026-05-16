@@ -53,6 +53,22 @@ for f in /sys/class/dvb/dvb*.frontend*/device/uevent; do echo "=== $f"; cat "$f"
 2. A known-good DVB-T channels file (`channels_t.conf`) for regression.
 3. At least one known DVB-T2 service name expected to be present.
 
+## Firmware Prerequisites
+
+Some DVB adapters require out-of-tree firmware blobs to be installed under `/lib/firmware`
+before lock/tune will work reliably.
+
+Example (WinTV QuadHD / Si2168):
+
+- Download/install firmware such as:
+	https://github.com/OpenELEC/dvb-firmware/blob/master/firmware/dvb-demod-si2168-b40-01.fw
+
+After installing firmware, reboot or reload DVB kernel modules, then verify firmware load:
+
+```bash
+dmesg | grep -Ei "firmware|dvb|si2168"
+```
+
 Optional but recommended:
 
 - One initial tuning line for `scan net` testing, format:
