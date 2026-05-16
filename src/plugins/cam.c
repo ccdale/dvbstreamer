@@ -97,7 +97,7 @@ static void ProcessPMT(dvbpsi_pmt_t *pmt)
     
     if (pmt->i_program_number == service->id)
     {
-        needs_decrypting = PMTDoesNeedDecypting(pmt);
+        needs_decrypting = PMTDoesNeedDecrypting(pmt);
         
         if (currentPMT)
         {

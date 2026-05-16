@@ -36,6 +36,8 @@ Entry point to the application.
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#include <errno.h>
+
 
 #include "parsezap.h"
 #include "dbase.h"
@@ -265,6 +267,24 @@ int main(int argc, char *argv[])
             }
             free(cwd);
         }
+        /*
+         * set the pidfile up BEFORE forking
+         * so it is available in all children
+         */
+        FILE *pfp;
+        sprintf(PidFile, "/var/run/dvbstreamer-%d.pid", adapterNumber);
+        pfp = fopen(PidFile, "wt");
+        if (!pfp)
+        {
+            sprintf(PidFile, "%s/dvbstreamer-%d.pid", DataDirectory, adapterNumber);
+            pfp = fopen(PidFile, "wt");
+        }
+        if (pfp)
+        {
+            fclose(pfp);
+        }
+        /* end of pid file setup */
+
         InitDaemon(adapterNumber);
     }
 
@@ -831,6 +851,7 @@ static void InitDaemon(int adapter)
     if (pid > 0)
     {
         FILE *fp;
+        /*
         sprintf(PidFile, "/var/run/dvbstreamer-%d.pid", adapter);
         fp = fopen(PidFile, "wt");
         if (!fp)
@@ -838,11 +859,14 @@ static void InitDaemon(int adapter)
             sprintf(PidFile, "%s/dvbstreamer-%d.pid", DataDirectory, adapter);
             fp = fopen(PidFile, "wt");
         }
-
+        */
+        fp = fopen(PidFile, "wt");
         if (fp)
         {
             fprintf(fp, "%d", pid);
             fclose(fp);
+        }else{
+            LogModule(LOG_DEBUG, MAIN, "Failed to open pidfile: %s", PidFile);
         }
         exit(0);
     }
@@ -852,9 +876,15 @@ static void InitDaemon(int adapter)
 
 static void DeInitDaemon(void)
 {
+    int ul;
+    char *se;
 
     /* Remove pid file */
-    unlink(PidFile);
+    ul=unlink(PidFile);
+    if(ul!=0){
+        se=strerror(errno);
+        LogModule(LOG_DEBUG, MAIN, "failed to delete pid file, %s, 'cos: %s",PidFile, se);
+    }
     exit(0);
 }
 

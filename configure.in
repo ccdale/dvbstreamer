@@ -188,7 +188,8 @@ dnl ---------------------------------------------------------------------------
 dnl Check for libev
 dnl ---------------------------------------------------------------------------
 AC_CHECK_HEADER([ev.h], [], [AC_MSG_FAILURE([libev header file not found])])
-AC_CHECK_LIB([ev], [ev_loop], [], [AC_MSG_FAILURE([libev not found])])
+AC_CHECK_DECL([ev_loop()], [], [AC_MSG_FAILURE([libev doesn't provide ev_loop])], [[#include <ev.h>]])
+dnl AC_CHECK_LIB([ev], [ev_loop], [], [AC_MSG_FAILURE([libev not found])])
 LIBS=""
 
 dnl ---------------------------------------------------------------------------
