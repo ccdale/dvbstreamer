@@ -168,6 +168,11 @@ MRLs are in the form `<transport>://<details>` and specify where output is sent.
 | file | file://filepath | Packets are written to the specified file. |
 | null | null:// | Packets are discarded. |
 
+Important:
+
+- `udp://` and `file://` handlers are provided by plugins.
+- If `setmrl` or `setsfmrl` reports MRL parse failures for valid values, run `make install` so plugins are installed to the configured plugin directory.
+
 ## Commands
 
 - quit: Exit the program.
@@ -178,206 +183,31 @@ MRLs are in the form `<transport>://<details>` and specify where output is sent.
 - serviceinfo: Display information about a service.
 - pids: List PIDs for a service.
 - stats: Display stats for PAT/PMT/service PID filters.
+- setmrl: Set MRL for the primary service filter.
+- getmrl: Get MRL for the primary service filter.
+- addsf: Add a secondary service filter output.
+- rmsf: Remove a secondary service filter output.
 - lssfs: List secondary service filters.
 - setsf: Select service for a secondary service output.
+- getsf: Show selected service for a secondary service output.
 - setsfmrl: Set service filter MRL.
-- setsfavsonly: Enable/disable Audio/Video/Subtitles-only streaming.
+- getsfmrl: Get service filter MRL.
+- setsfavsonly: Enable or disable Audio/Video/Subtitles-only streaming.
+- getsfavsonly: Show Audio/Video/Subtitles-only mode state.
 - festatus: Display tuner status.
 - scan: Scan multiplexes for services.
 - help: List commands or help for a specific command.
 - lsplugins: List loaded plugins.
 - plugininfo: Display plugin information.
 
-### quit
+Detailed command usage and per-command help text are now in:
 
-Usage:
+- `doc/command-reference.md`
 
-```text
-quit
-```
+## Known Issues
 
-Exit the program. Can be used in a startup file to stop processing.
-
-### lsservices
-
-Usage:
-
-```text
-lsservices [mux | <multiplex uid>]
-```
-
-Lists services in the database, services on the current mux, or services on a
-specified multiplex uid.
-
-### lsmuxes
-
-Usage:
-
-```text
-lsmuxes
-```
-
-List all multiplexes.
-
-### select
-
-Usage:
-
-```text
-select <service name>
-```
-
-Sets the specified service as primary output, which may retune multiplex.
-
-### current
-
-Usage:
-
-```text
-current
-```
-
-Shows the currently streamed service.
-
-### serviceinfo
-
-Usage:
-
-```text
-serviceinfo <service name>
-```
-
-Displays running status, conditional access status, and EPG presence.
-
-### pids
-
-Usage:
-
-```text
-pids <service name>
-```
-
-List PIDs for the specified service.
-
-### stats
-
-Usage:
-
-```text
-stats
-```
-
-Display packet counts for PSI/SI filters and service/manual outputs.
-
-### addsf
-
-Usage:
-
-```text
-addsf <output name> <mrl>
-```
-
-Adds a secondary service destination.
-
-### rmsf
-
-Usage:
-
-```text
-rmsf <output name>
-```
-
-Removes a secondary service destination.
-
-### lssfs
-
-Usage:
-
-```text
-lssfs
-```
-
-Lists secondary service filters, destinations, and selected services.
-
-### setsf
-
-Usage:
-
-```text
-setsf <output name> <service name>
-```
-
-Streams the specified service to a secondary output.
-
-### setsfmrl
-
-Usage:
-
-```text
-setsfmrl <output name> <mrl>
-```
-
-Changes destination MRL for a service filter output.
-
-### setsfavsonly
-
-Usage:
-
-```text
-setsfavsonly <output name> on|off
-```
-
-When enabled, rewrites PMT to include only first video, normal audio, and subtitles.
-
-### festatus
-
-Usage:
-
-```text
-festatus
-```
-
-Displays lock status, BER, SNR, and signal strength.
-
-### scan
-
-Usage:
-
-```text
-scan <mulitplex>
-```
-
-Tunes to specified multiplex and waits 5 seconds for PAT/PMT/SDT.
-
-### help
-
-Usage:
-
-```text
-help [<command>]
-```
-
-Lists all commands or help for one command.
-
-### lsplugins
-
-Usage:
-
-```text
-lsplugins
-```
-
-Lists plugins loaded at startup.
-
-### plugininfo
-
-Usage:
-
-```text
-plugininfo <pluginname>
-```
-
-Displays version, author, and description for a plugin.
+- `setupdvbstreamer` reports syntax errors for malformed channels files, but may still exit with status `0` for some malformed-input cases.
+- Missing or unreadable channels files correctly return a non-zero exit status.
 
 ## Plugins
 
@@ -409,42 +239,8 @@ http://sourceforge.net/tracker/?group_id=164687&atid=832723
 
 ## Credits
 
-- Adam Charrett: Author
-- Tero Pelander: IPv6 support, patches, DVB-C testing
-- Thomas Sattler: Extensive testing for 0.5
-- Nicholas Humfrey: PowerPC testing and patch
-- Alex Luccisano: DVB-S testing
-- Jonathan Isom: ATSC testing
-- Michael Treuer: Patch to DVB text code
-- Steve VanDeBogart: Several patches and traffic monitor plugin
-- Ramsey Ammar: First donor
-- Paul Kelly: Patch to make festatus work on DVB-S
-- Louis Croisez: Help finding critical MRL bug and testing
-- Chris Allison: Patch adding Series/Content IDs to xmltv output
-- Marcel Ritter: Bug fix
-- A C G Mennucc: Several bug fixes/patches
-- Tom Albers: Test stream and testing of extended event descriptor patch
-- Samuli Suominen: Patch to use system libltdl instead of in-tree copy
-- Issa Gorissen: Donated TeVII S660 for DVB-S2 support
-- Luca Dasseto: Donated TeVII S660 for DVB-S2 support
-
-VideoLan libdvbpsi Team for libdvbpsi:
-
-http://www.videolan.org/developers/libdvbpsi.html
-
-MythTV Team for huffman decode tables for Freesat EPG.
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for project credits and attribution.
 
 ## History
 
-- 2.0 Next Gen Release
-- 1.1 Ubuntu build fix Release
-- 1.0 The first .0 Release
-- 0.9 EPG Release
-- 0.8 ATSC/DVB-S Release
-- 0.7 Remote interface Release
-- 0.6 Stability Release
-- 0.5 Plugin Release
-- 0.4 Daemon mode
-- 0.3 Service Addition/Removal
-- 0.2 Add new commands (addoutput etc)
-- 0.1 First public release
+See [doc/history.md](doc/history.md) for release history.
