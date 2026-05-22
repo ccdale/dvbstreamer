@@ -189,6 +189,16 @@ credentials explicitly since the remote machine does not have the server's confi
 dvbctrl -h <host> -u dvbstreamer -p control <command>
 ```
 
+Alternatively, copy the server's config file to the remote machine **preserving
+permissions** (the file must be `0600` — owner-read/write only; a group- or
+world-readable copy will be rejected):
+
+```bash
+scp ~/.config/dvbstreamer/userconfig.json remote:.config/dvbstreamer/userconfig.json
+# or after a plain cp:
+chmod 600 ~/.config/dvbstreamer/userconfig.json
+```
+
 ### MRLs (Media Resource Locator)
 
 MRLs are in the form `<transport>://<details>` and specify where output is sent.
