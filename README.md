@@ -175,6 +175,9 @@ Expected format:
 }
 ```
 
+If the file is missing, malformed, or has insecure permissions, both tools
+fall back to the built-in defaults (`dvbstreamer` / `control`) and log a warning.
+
 ### MRLs (Media Resource Locator)
 
 MRLs are in the form `<transport>://<details>` and specify where output is sent.

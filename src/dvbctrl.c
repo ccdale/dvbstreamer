@@ -78,6 +78,8 @@ char DataDirectory[PATH_MAX];
 
 int main(int argc, char *argv[])
 {
+    static char defaultUsername[] = "dvbstreamer";
+    static char defaultPassword[] = "control";
     int i;
     socklen_t address_len;
 #ifdef USE_GETADDRINFO
@@ -97,9 +99,10 @@ int main(int argc, char *argv[])
     int logLevel = 0;
     char logFilename[PATH_MAX] = {0};
     bool interactive = FALSE;
-    char *username = NULL;
-    char *password = NULL;
+    char *username = defaultUsername;
+    char *password = defaultPassword;
     char authError[256] = {0};
+    bool userConfigCredentialsLoaded = FALSE;
  
     /* Create the data directory */
     sprintf(DataDirectory, "%s/.dvbstreamer", getenv("HOME"));
@@ -142,9 +145,34 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (UserConfigAuthLoad(&username, &password, authError, sizeof(authError)) != 0)
     {
-        fprintf(stderr, "%s\n", authError);
+        char *fileUsername = NULL;
+        char *filePassword = NULL;
+
+        if (UserConfigAuthLoad(&fileUsername, &filePassword, authError, sizeof(authError)) == 0)
+        {
+            if ((fileUsername != NULL) && (filePassword != NULL))
+            {
+                username = fileUsername;
+                password = filePassword;
+                userConfigCredentialsLoaded = TRUE;
+            }
+            else
+            {
+                free(fileUsername);
+                free(filePassword);
+                fprintf(stderr, "Warning: auth config returned empty credentials, using defaults.\n");
+            }
+        }
+        else
+        {
+            fprintf(stderr, "Warning: %s Using default credentials.\n", authError);
+        }
+    }
+
+    if ((username == NULL) || (password == NULL))
+    {
+        fprintf(stderr, "Failed to prepare authentication credentials.\n");
         exit(1);
     }
 
@@ -341,8 +369,11 @@ int main(int argc, char *argv[])
     fclose(socketfp);
     LogModule(LOG_DEBUG, DVBCTRL, "Socket closed\n");
 
-    free(username);
-    free(password);
+    if (userConfigCredentialsLoaded)
+    {
+        free(username);
+        free(password);
+    }
 
     return 0;
 }

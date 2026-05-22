@@ -143,12 +143,14 @@ static char hexVersionStr[5]; /* XXXX\0 */
 *******************************************************************************/
 int main(int argc, char *argv[])
 {
+    static char defaultUsername[] = "dvbstreamer";
+    static char defaultPassword[] = "control";
     char *startupFile = NULL;
     int adapterNumber = 0;
     int scanAll = 0;
     int logLevel = 0;
-    char *username = NULL;
-    char *password = NULL;
+    char *username = defaultUsername;
+    char *password = defaultPassword;
     char *serverName = NULL;
     char *bindAddress = NULL;
     char *primaryMRL = "null://";
@@ -161,6 +163,7 @@ int main(int argc, char *argv[])
     DeliveryMethodInstance_t *dmInstance;
     char logFilename[PATH_MAX] = {0};
     char authError[256] = {0};
+    bool userConfigCredentialsLoaded = FALSE;
 
     /* Create the data directory */
     sprintf(DataDirectory, "%s/.dvbstreamer", getenv("HOME"));
@@ -228,10 +231,27 @@ int main(int argc, char *argv[])
 
     if (remoteInterface)
     {
-        if (UserConfigAuthLoad(&username, &password, authError, sizeof(authError)) != 0)
+        char *fileUsername = NULL;
+        char *filePassword = NULL;
+
+        if (UserConfigAuthLoad(&fileUsername, &filePassword, authError, sizeof(authError)) == 0)
         {
-            fprintf(stderr, "%s\n", authError);
-            exit(1);
+            if ((fileUsername != NULL) && (filePassword != NULL))
+            {
+                username = fileUsername;
+                password = filePassword;
+                userConfigCredentialsLoaded = TRUE;
+            }
+            else
+            {
+                free(fileUsername);
+                free(filePassword);
+                fprintf(stderr, "Warning: auth config returned empty credentials, using defaults.\n");
+            }
+        }
+        else
+        {
+            fprintf(stderr, "Warning: %s Using default credentials.\n", authError);
         }
     }
 
@@ -587,8 +607,11 @@ int main(int argc, char *argv[])
         DeInitDaemon();
     }
 
-    free(username);
-    free(password);
+    if (userConfigCredentialsLoaded)
+    {
+        free(username);
+        free(password);
+    }
     
     LogModule(LOG_INFO, MAIN, "DVBStreamer finished.");
     LoggingDeInit();

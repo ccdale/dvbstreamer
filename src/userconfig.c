@@ -5,10 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "userconfig.h"
 
-#define USERCONFIG_RELATIVE_PATH "/.config/dvbstreamer/userconfig.json"
+#define USERCONFIG_RELATIVE_PATH "/dvbstreamer/userconfig.json"
 #define USERCONFIG_MAX_SIZE 8192
 
 static void SetError(char *error, size_t errorSize, const char *message)
@@ -28,31 +29,12 @@ static const char *SkipWhitespace(const char *cursor)
     return cursor;
 }
 
-static int ExtractJsonString(const char *json, const char *key, char **value, char *error, size_t errorSize)
+static int DecodeJsonString(const char **cursorPtr, const char *key, char **value, char *error, size_t errorSize)
 {
-    char pattern[64];
-    const char *cursor;
+    const char *cursor = *cursorPtr;
     char *result;
     size_t resultLen = 0;
 
-    snprintf(pattern, sizeof(pattern), "\"%s\"", key);
-    cursor = strstr(json, pattern);
-    if (cursor == NULL)
-    {
-        snprintf(error, errorSize, "Missing \"%s\" in auth config.", key);
-        return 1;
-    }
-
-    cursor += strlen(pattern);
-    cursor = SkipWhitespace(cursor);
-    if (*cursor != ':')
-    {
-        snprintf(error, errorSize, "Invalid JSON near \"%s\".", key);
-        return 1;
-    }
-
-    cursor++;
-    cursor = SkipWhitespace(cursor);
     if (*cursor != '"')
     {
         snprintf(error, errorSize, "Value for \"%s\" must be a JSON string.", key);
@@ -73,6 +55,7 @@ static int ExtractJsonString(const char *json, const char *key, char **value, ch
         {
             result[resultLen] = '\0';
             *value = result;
+            *cursorPtr = cursor + 1;
             return 0;
         }
 
@@ -127,17 +110,100 @@ static int ExtractJsonString(const char *json, const char *key, char **value, ch
     return 1;
 }
 
+static int JsonKeyMatches(const char *keyStart, size_t keyLen, const char *key)
+{
+    size_t expectedLen = strlen(key);
+    return (keyLen == expectedLen) && (strncmp(keyStart, key, keyLen) == 0);
+}
+
+static int ExtractJsonString(const char *json, const char *key, char **value, char *error, size_t errorSize)
+{
+    const char *cursor = json;
+
+    while (*cursor != '\0')
+    {
+        const char *keyStart;
+        const char *keyEnd;
+
+        cursor = SkipWhitespace(cursor);
+        if (*cursor == '\0')
+        {
+            break;
+        }
+
+        if (*cursor != '"')
+        {
+            cursor++;
+            continue;
+        }
+
+        keyStart = ++cursor;
+        while ((*cursor != '\0') && (*cursor != '"'))
+        {
+            if ((*cursor == '\\') && (cursor[1] != '\0'))
+            {
+                cursor += 2;
+                continue;
+            }
+            cursor++;
+        }
+
+        if (*cursor != '"')
+        {
+            break;
+        }
+
+        keyEnd = cursor;
+        cursor++;
+        cursor = SkipWhitespace(cursor);
+        if (*cursor != ':')
+        {
+            continue;
+        }
+        cursor++;
+        cursor = SkipWhitespace(cursor);
+
+        if (JsonKeyMatches(keyStart, (size_t)(keyEnd - keyStart), key))
+        {
+            return DecodeJsonString(&cursor, key, value, error, errorSize);
+        }
+
+        if (*cursor == '"')
+        {
+            char *ignoredValue = NULL;
+            if (DecodeJsonString(&cursor, key, &ignoredValue, error, errorSize) != 0)
+            {
+                return 1;
+            }
+            free(ignoredValue);
+        }
+    }
+
+    snprintf(error, errorSize, "Missing \"%s\" in auth config.", key);
+    return 1;
+}
+
 char *UserConfigAuthPathGet(void)
 {
+    const char *xdgConfigHome = getenv("XDG_CONFIG_HOME");
     const char *home = getenv("HOME");
     char *path;
 
-    if (home == NULL)
+    if ((xdgConfigHome != NULL) && (xdgConfigHome[0] != '\0'))
+    {
+        if (asprintf(&path, "%s%s", xdgConfigHome, USERCONFIG_RELATIVE_PATH) == -1)
+        {
+            return NULL;
+        }
+        return path;
+    }
+
+    if ((home == NULL) || (home[0] == '\0'))
     {
         return NULL;
     }
 
-    if (asprintf(&path, "%s%s", home, USERCONFIG_RELATIVE_PATH) == -1)
+    if (asprintf(&path, "%s/.config%s", home, USERCONFIG_RELATIVE_PATH) == -1)
     {
         return NULL;
     }
@@ -151,6 +217,7 @@ int UserConfigAuthLoad(char **username, char **password, char *error, size_t err
     FILE *fp;
     char *buffer;
     size_t bytesRead;
+    struct stat pathStat;
     int result = 1;
 
     *username = NULL;
@@ -169,6 +236,18 @@ int UserConfigAuthLoad(char **username, char **password, char *error, size_t err
         snprintf(error, errorSize, "Failed to open auth config %s: %s", path, strerror(errno));
         free(path);
         return 1;
+    }
+
+    if (stat(path, &pathStat) == 0)
+    {
+        if (pathStat.st_mode & (S_IRWXG | S_IRWXO))
+        {
+            snprintf(error, errorSize,
+                "Auth config %s has insecure permissions (group/other access).", path);
+            fclose(fp);
+            free(path);
+            return 1;
+        }
     }
 
     buffer = calloc(USERCONFIG_MAX_SIZE + 1, 1);
