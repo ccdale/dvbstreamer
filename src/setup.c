@@ -27,6 +27,8 @@ Setups the database for the main application.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <sys/unistd.h>
 #include <sys/stat.h>
@@ -66,6 +68,223 @@ Setups the database for the main application.
 
 static void usage(char *appname);
 static void version(void);
+static int PromptAndWriteRemoteAuthConfig(void);
+
+static int EnsureDirectoryExists(char *path)
+{
+    char *cursor;
+
+    for (cursor = path + 1; *cursor != '\0'; cursor++)
+    {
+        if (*cursor == '/')
+        {
+            *cursor = '\0';
+            if ((mkdir(path, S_IRWXU) != 0) && (errno != EEXIST))
+            {
+                *cursor = '/';
+                return 1;
+            }
+            *cursor = '/';
+        }
+    }
+
+    if ((mkdir(path, S_IRWXU) != 0) && (errno != EEXIST))
+    {
+        return 1;
+    }
+    return 0;
+}
+
+static int EscapeJSONString(const char *input, char **output)
+{
+    size_t i;
+    size_t outLen = 0;
+    size_t inLen = strlen(input);
+    char *escaped = malloc((inLen * 2) + 1);
+    if (escaped == NULL)
+    {
+        return 1;
+    }
+
+    for (i = 0; i < inLen; i++)
+    {
+        if ((input[i] == '"') || (input[i] == '\\'))
+        {
+            escaped[outLen++] = '\\';
+        }
+        escaped[outLen++] = input[i];
+    }
+    escaped[outLen] = '\0';
+    *output = escaped;
+    return 0;
+}
+
+static char *TrimLine(char *line)
+{
+    char *end;
+
+    while ((*line != '\0') && ((*line == ' ') || (*line == '\t') || (*line == '\n') || (*line == '\r')))
+    {
+        line++;
+    }
+
+    end = line + strlen(line);
+    while ((end > line) && ((end[-1] == ' ') || (end[-1] == '\t') || (end[-1] == '\n') || (end[-1] == '\r')))
+    {
+        end--;
+    }
+    *end = '\0';
+    return line;
+}
+
+static char *SetupUserConfigPathGet(void)
+{
+    const char *xdgConfigHome = getenv("XDG_CONFIG_HOME");
+    const char *home = getenv("HOME");
+    char *path;
+
+    if ((xdgConfigHome != NULL) && (xdgConfigHome[0] != '\0'))
+    {
+        if (asprintf(&path, "%s/dvbstreamer/userconfig.json", xdgConfigHome) == -1)
+        {
+            return NULL;
+        }
+        return path;
+    }
+
+    if ((home == NULL) || (home[0] == '\0'))
+    {
+        return NULL;
+    }
+
+    if (asprintf(&path, "%s/.config/dvbstreamer/userconfig.json", home) == -1)
+    {
+        return NULL;
+    }
+
+    return path;
+}
+
+static int PromptAndWriteRemoteAuthConfig(void)
+{
+    char usernameBuffer[256] = {0};
+    char *username;
+    char *passwordInput;
+    const char *password;
+    char *escapedUsername = NULL;
+    char *escapedPassword = NULL;
+    char *configPath;
+    char *configDir;
+    char *slash;
+    int fd;
+    FILE *fp;
+
+    printf("\nRemote control credential setup\n");
+    printf("Username [dvbstreamer]: ");
+    if (fgets(usernameBuffer, sizeof(usernameBuffer), stdin) == NULL)
+    {
+        return 1;
+    }
+
+    username = TrimLine(usernameBuffer);
+    if (username[0] == '\0')
+    {
+        username = "dvbstreamer";
+    }
+
+    passwordInput = getpass("Password [control]: ");
+    if ((passwordInput == NULL) || (passwordInput[0] == '\0'))
+    {
+        password = "control";
+    }
+    else
+    {
+        password = passwordInput;
+    }
+
+    if (EscapeJSONString(username, &escapedUsername) != 0)
+    {
+        return 1;
+    }
+    if (EscapeJSONString(password, &escapedPassword) != 0)
+    {
+        free(escapedUsername);
+        return 1;
+    }
+
+    configPath = SetupUserConfigPathGet();
+    if (configPath == NULL)
+    {
+        free(escapedUsername);
+        free(escapedPassword);
+        return 1;
+    }
+
+    configDir = strdup(configPath);
+    if (configDir == NULL)
+    {
+        free(configPath);
+        free(escapedUsername);
+        free(escapedPassword);
+        return 1;
+    }
+
+    slash = strrchr(configDir, '/');
+    if (slash == NULL)
+    {
+        free(configDir);
+        free(configPath);
+        free(escapedUsername);
+        free(escapedPassword);
+        return 1;
+    }
+    *slash = '\0';
+
+    if (EnsureDirectoryExists(configDir) != 0)
+    {
+        free(configDir);
+        free(configPath);
+        free(escapedUsername);
+        free(escapedPassword);
+        return 1;
+    }
+
+    fd = open(configPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (fd < 0)
+    {
+        free(configDir);
+        free(configPath);
+        free(escapedUsername);
+        free(escapedPassword);
+        return 1;
+    }
+
+    fp = fdopen(fd, "w");
+    if (fp == NULL)
+    {
+        close(fd);
+        free(configDir);
+        free(configPath);
+        free(escapedUsername);
+        free(escapedPassword);
+        return 1;
+    }
+
+    fprintf(fp,
+        "{\n"
+        "  \"username\": \"%s\",\n"
+        "  \"password\": \"%s\"\n"
+        "}\n",
+        escapedUsername, escapedPassword);
+
+    fclose(fp);
+    free(configDir);
+    printf("Wrote remote auth config to %s\n", configPath);
+    free(configPath);
+    free(escapedUsername);
+    free(escapedPassword);
+    return 0;
+}
 
 /*******************************************************************************
 * Global variables                                                             *
@@ -254,6 +473,11 @@ int main(int argc, char *argv[])
 
     printf("%d Services available on %d Multiplexes\n", ServiceCount(), MultiplexCount());
 
+    if (PromptAndWriteRemoteAuthConfig() != 0)
+    {
+        fprintf(stderr, "Warning: failed to write remote auth config file.\n");
+    }
+
     DEINIT(ServiceDeInit(), "service");
     DEINIT(MultiplexDeInit(), "multiplex");
     DEINIT(DBaseDeInit(), "database");
@@ -304,6 +528,9 @@ static void usage(char *appname)
             "      -A <file>     : ATSC channels.conf file to import services and \n"
             "                      multiplexes from. (ATSC)\n"
 #endif
+            "\n"
+            "      After import, setupdvbstreamer prompts for remote control\n"
+            "      username/password and writes userconfig.json.\n"
             ,appname );
 }
 
