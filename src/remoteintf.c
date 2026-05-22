@@ -208,10 +208,29 @@ int RemoteInterfaceInit(int adapter, char *streamerName, char *bindAddress, char
     connectionsList = ListCreate();
 
     listen(serverSocket, 1);
-    
+
+    if ((streamerName == NULL) || (username == NULL) || (password == NULL))
+    {
+        LogModule(LOG_ERROR, REMOTEINTERFACE, "Invalid credentials/server name for remote interface.\n");
+        close(serverSocket);
+        return 1;
+    }
+
     infoStreamerName = strdup(streamerName);
     authUsername = strdup(username);
     authPassword = strdup(password);
+    if ((infoStreamerName == NULL) || (authUsername == NULL) || (authPassword == NULL))
+    {
+        LogModule(LOG_ERROR, REMOTEINTERFACE, "Failed to allocate remote interface auth state.\n");
+        free(infoStreamerName);
+        free(authUsername);
+        free(authPassword);
+        infoStreamerName = NULL;
+        authUsername = NULL;
+        authPassword = NULL;
+        close(serverSocket);
+        return 1;
+    }
 
     time(&serverStartTime);
     LogModule(LOG_INFO, REMOTEINTERFACE, "Server created %s", ctime(&serverStartTime));
@@ -419,6 +438,12 @@ static void PrintResponse(FILE *fp, uint16_t errno, char * msg)
 static void RemoteInterfaceAuthenticate(int argc, char **argv)
 {
     CommandContext_t *context = CommandContextGet();
+    if ((authUsername == NULL) || (authPassword == NULL))
+    {
+        context->authenticated = FALSE;
+        CommandError(COMMAND_ERROR_AUTHENTICATION, "Authentication backend unavailable.");
+        return;
+    }
     if ((strcmp(argv[0], authUsername) == 0) &&
         (strcmp(argv[1], authPassword) == 0))
     {

@@ -34,6 +34,7 @@ static int DecodeJsonString(const char **cursorPtr, const char *key, char **valu
     const char *cursor = *cursorPtr;
     char *result;
     size_t resultLen = 0;
+    size_t resultCap;
 
     if (*cursor != '"')
     {
@@ -42,7 +43,8 @@ static int DecodeJsonString(const char **cursorPtr, const char *key, char **valu
     }
 
     cursor++;
-    result = malloc(strlen(cursor) + 1);
+    resultCap = strlen(cursor) + 1;
+    result = malloc(resultCap);
     if (result == NULL)
     {
         SetError(error, errorSize, "Failed to allocate memory for auth config.");
@@ -74,21 +76,57 @@ static int DecodeJsonString(const char **cursorPtr, const char *key, char **valu
                 case '"':
                 case '\\':
                 case '/':
+                    if (resultLen + 1 >= resultCap)
+                    {
+                        free(result);
+                        snprintf(error, errorSize, "Value for \"%s\" is too long.", key);
+                        return 1;
+                    }
                     result[resultLen++] = *cursor;
                     break;
                 case 'b':
+                    if (resultLen + 1 >= resultCap)
+                    {
+                        free(result);
+                        snprintf(error, errorSize, "Value for \"%s\" is too long.", key);
+                        return 1;
+                    }
                     result[resultLen++] = '\b';
                     break;
                 case 'f':
+                    if (resultLen + 1 >= resultCap)
+                    {
+                        free(result);
+                        snprintf(error, errorSize, "Value for \"%s\" is too long.", key);
+                        return 1;
+                    }
                     result[resultLen++] = '\f';
                     break;
                 case 'n':
+                    if (resultLen + 1 >= resultCap)
+                    {
+                        free(result);
+                        snprintf(error, errorSize, "Value for \"%s\" is too long.", key);
+                        return 1;
+                    }
                     result[resultLen++] = '\n';
                     break;
                 case 'r':
+                    if (resultLen + 1 >= resultCap)
+                    {
+                        free(result);
+                        snprintf(error, errorSize, "Value for \"%s\" is too long.", key);
+                        return 1;
+                    }
                     result[resultLen++] = '\r';
                     break;
                 case 't':
+                    if (resultLen + 1 >= resultCap)
+                    {
+                        free(result);
+                        snprintf(error, errorSize, "Value for \"%s\" is too long.", key);
+                        return 1;
+                    }
                     result[resultLen++] = '\t';
                     break;
                 default:
@@ -99,6 +137,12 @@ static int DecodeJsonString(const char **cursorPtr, const char *key, char **valu
         }
         else
         {
+            if (resultLen + 1 >= resultCap)
+            {
+                free(result);
+                snprintf(error, errorSize, "Value for \"%s\" is too long.", key);
+                return 1;
+            }
             result[resultLen++] = *cursor;
         }
 
