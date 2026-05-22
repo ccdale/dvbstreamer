@@ -101,6 +101,8 @@ int main(int argc, char *argv[])
     bool interactive = FALSE;
     char *username = defaultUsername;
     char *password = defaultPassword;
+    char *usernameOverride = NULL;
+    char *passwordOverride = NULL;
     char authError[256] = {0};
     bool userConfigCredentialsLoaded = FALSE;
  
@@ -111,7 +113,7 @@ int main(int argc, char *argv[])
     while (TRUE)
     {
         int c;
-        c = getopt(argc, argv, "vVh:a:f:L:i");
+        c = getopt(argc, argv, "vVh:a:u:p:f:L:i");
         if (c == -1)
         {
             break;
@@ -136,6 +138,12 @@ int main(int argc, char *argv[])
             case 'i':
                 interactive = TRUE;
                 break;
+            case 'u':
+                usernameOverride = optarg;
+                break;
+            case 'p':
+                passwordOverride = optarg;
+                break;
             case 'f':
                 filename = optarg;
                 break;
@@ -145,6 +153,19 @@ int main(int argc, char *argv[])
         }
     }
 
+    if ((usernameOverride != NULL) || (passwordOverride != NULL))
+    {
+        /* Explicit -u/-p flags override everything */
+        if (usernameOverride != NULL)
+        {
+            username = usernameOverride;
+        }
+        if (passwordOverride != NULL)
+        {
+            password = passwordOverride;
+        }
+    }
+    else
     {
         char *fileUsername = NULL;
         char *filePassword = NULL;
@@ -420,12 +441,15 @@ static void usage(char *appname)
             "      -V            : Print version information then exit.\n"
             "      -h host       : Host to control.\n"
             "      -a <adapter>  : DVB Adapter number to control on the host.\n"
+            "      -u <username> : Override username for authentication.\n"
+            "      -p <password> : Override password for authentication.\n"
             "      -f <file>     : Read commands from <file>.\n",
             appname
            );
     fprintf(stderr,
-            "      Auth is loaded from $HOME/.config/dvbstreamer/userconfig.json\n"
-            "      using JSON keys \"username\" and \"password\".\n");
+            "      Without -u/-p, auth is loaded from\n"
+            "      $HOME/.config/dvbstreamer/userconfig.json\n"
+            "      (keys: \"username\", \"password\"); falls back to defaults.\n");
 }
 
 /*

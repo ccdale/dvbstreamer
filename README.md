@@ -160,13 +160,13 @@ addmfpid eitoutput 0x12
 
 ### Remote control authentication
 
-`dvbstreamer` remote mode and `dvbctrl` now load control credentials from:
+`dvbstreamer` and `dvbctrl` load credentials from (in priority order):
 
-```text
-$HOME/.config/dvbstreamer/userconfig.json
-```
+1. **`dvbctrl` only**: explicit `-u <username>` and `-p <password>` flags — useful when controlling a remote host that has different credentials.
+2. `$HOME/.config/dvbstreamer/userconfig.json` on the machine running the tool.
+3. Built-in defaults: `dvbstreamer` / `control`.
 
-Expected format:
+Expected config format:
 
 ```json
 {
@@ -175,8 +175,19 @@ Expected format:
 }
 ```
 
+`setupdvbstreamer` creates this file on the server host after importing channels.
+
 If the file is missing, malformed, or has insecure permissions, both tools
-fall back to the built-in defaults (`dvbstreamer` / `control`) and log a warning.
+fall back to the built-in defaults and log a warning.
+
+#### Controlling a remote dvbstreamer host
+
+If you run `dvbctrl` on a different machine to the `dvbstreamer` host, pass the
+credentials explicitly since the remote machine does not have the server's config file:
+
+```bash
+dvbctrl -h <host> -u dvbstreamer -p control <command>
+```
 
 ### MRLs (Media Resource Locator)
 
