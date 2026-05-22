@@ -41,6 +41,7 @@ Application to control dvbstreamer in daemon mode.
 #include "types.h"
 #include "logging.h"
 #include "remoteintf.h"
+#include "userconfig.h"
 
 /*******************************************************************************
 * Defines                                                                      *
@@ -69,8 +70,6 @@ static const char DVBCTRL[] = "DVBCtrl";
 static char *host = "localhost";
 static int adapterNumber = 0;
 static char line[MAX_LINE_LENGTH];
-static char defaultUsername[] = "dvbstreamer";
-static char defaultPassword[] = "control";
 
 char DataDirectory[PATH_MAX];
 /*******************************************************************************
@@ -98,8 +97,9 @@ int main(int argc, char *argv[])
     int logLevel = 0;
     char logFilename[PATH_MAX] = {0};
     bool interactive = FALSE;
-    char *username = defaultUsername;
-    char *password = defaultPassword;
+    char *username = NULL;
+    char *password = NULL;
+    char authError[256] = {0};
  
     /* Create the data directory */
     sprintf(DataDirectory, "%s/.dvbstreamer", getenv("HOME"));
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
     while (TRUE)
     {
         int c;
-        c = getopt(argc, argv, "vVh:a:u:p:f:L:i");
+        c = getopt(argc, argv, "vVh:a:f:L:i");
         if (c == -1)
         {
             break;
@@ -133,12 +133,6 @@ int main(int argc, char *argv[])
             case 'i':
                 interactive = TRUE;
                 break;
-            case 'u':
-                username = optarg;
-                break;
-            case 'p':
-                password = optarg;
-                break;
             case 'f':
                 filename = optarg;
                 break;
@@ -147,6 +141,13 @@ int main(int argc, char *argv[])
                 exit(1);
         }
     }
+
+    if (UserConfigAuthLoad(&username, &password, authError, sizeof(authError)) != 0)
+    {
+        fprintf(stderr, "%s\n", authError);
+        exit(1);
+    }
+
     if (logFilename[0])
     {
         if (LoggingInitFile(logFilename, logLevel))
@@ -340,6 +341,9 @@ int main(int argc, char *argv[])
     fclose(socketfp);
     LogModule(LOG_DEBUG, DVBCTRL, "Socket closed\n");
 
+    free(username);
+    free(password);
+
     return 0;
 }
 
@@ -388,6 +392,9 @@ static void usage(char *appname)
             "      -f <file>     : Read commands from <file>.\n",
             appname
            );
+    fprintf(stderr,
+            "      Auth is loaded from $HOME/.config/dvbstreamer/userconfig.json\n"
+            "      using JSON keys \"username\" and \"password\".\n");
 }
 
 /*
@@ -421,7 +428,14 @@ static bool SendCommand(FILE *socketfp, char *cmd, char **ver, int *errno, char 
     bool foundResponse = FALSE;
     char *separator;
 
-    LogModule(LOG_DEBUG, DVBCTRL, "Sending command \"%s\"\n", cmd);
+    if (strncmp(cmd, "auth ", 5) == 0)
+    {
+        LogModule(LOG_DEBUG, DVBCTRL, "Sending auth command\n");
+    }
+    else
+    {
+        LogModule(LOG_DEBUG, DVBCTRL, "Sending command \"%s\"\n", cmd);
+    }
     fprintf(socketfp, "%s\n", cmd);
 
     *ver = NULL;

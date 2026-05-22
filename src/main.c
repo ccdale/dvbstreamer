@@ -62,6 +62,7 @@ Entry point to the application.
 #include "deferredproc.h"
 #include "events.h"
 #include "properties.h"
+#include "userconfig.h"
 
 #include "standard/mpeg2.h"
 #include "standard/dvb.h"
@@ -146,8 +147,8 @@ int main(int argc, char *argv[])
     int adapterNumber = 0;
     int scanAll = 0;
     int logLevel = 0;
-    char *username = "dvbstreamer";
-    char *password = "control";
+    char *username = NULL;
+    char *password = NULL;
     char *serverName = NULL;
     char *bindAddress = NULL;
     char *primaryMRL = "null://";
@@ -159,6 +160,7 @@ int main(int argc, char *argv[])
     
     DeliveryMethodInstance_t *dmInstance;
     char logFilename[PATH_MAX] = {0};
+    char authError[256] = {0};
 
     /* Create the data directory */
     sprintf(DataDirectory, "%s/.dvbstreamer", getenv("HOME"));
@@ -169,7 +171,7 @@ int main(int argc, char *argv[])
     while (!ExitProgram)
     {
         int c;
-        c = getopt(argc, argv, "vVdDro:a:f:u:p:n:F:i:RL:I");
+        c = getopt(argc, argv, "vVdDro:a:f:n:F:i:RL:I");
         if (c == -1)
         {
             break;
@@ -207,10 +209,6 @@ int main(int argc, char *argv[])
                 case 'D': disableConsoleInput = TRUE;
                 remoteInterface = TRUE;
                 break;
-                case 'u': username = optarg;
-                break;
-                case 'p': password = optarg;
-                break;
                 case 'n': serverName = optarg;
                 break;
                 case 'i': bindAddress = optarg;
@@ -226,6 +224,15 @@ int main(int argc, char *argv[])
     if (ExitProgram)
     {
         exit(1);
+    }
+
+    if (remoteInterface)
+    {
+        if (UserConfigAuthLoad(&username, &password, authError, sizeof(authError)) != 0)
+        {
+            fprintf(stderr, "%s\n", authError);
+            exit(1);
+        }
     }
 
 
@@ -579,6 +586,9 @@ int main(int argc, char *argv[])
     {
         DeInitDaemon();
     }
+
+    free(username);
+    free(password);
     
     LogModule(LOG_INFO, MAIN, "DVBStreamer finished.");
     LoggingDeInit();
@@ -736,8 +746,8 @@ static void usage(char *appname)
             "      Remote Interface Options\n"
             "      -r            : Start remote interface as well as console shell.\n"
             "      -D            : Start remote interface but disable console shell.\n"
-            "      -u <username> : Username used to login remotely to control this instance.\n"
-            "      -p <password> : Password used to login remotely to control this instance.\n"
+            "      Auth is loaded from $HOME/.config/dvbstreamer/userconfig.json.\n"
+            "      Expected JSON keys are \"username\" and \"password\".\n"
             "      -n <name>     : Informational name for this instance.\n"
             "      -i <address>  : IP address to bind to.\n",
             appname

@@ -158,6 +158,23 @@ addmf eitoutput udp://localhost:1235
 addmfpid eitoutput 0x12
 ```
 
+### Remote control authentication
+
+`dvbstreamer` remote mode and `dvbctrl` now load control credentials from:
+
+```text
+$HOME/.config/dvbstreamer/userconfig.json
+```
+
+Expected format:
+
+```json
+{
+  "username": "dvbstreamer",
+  "password": "control"
+}
+```
+
 ### MRLs (Media Resource Locator)
 
 MRLs are in the form `<transport>://<details>` and specify where output is sent.

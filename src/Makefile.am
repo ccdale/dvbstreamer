@@ -8,6 +8,7 @@ bin_PROGRAMS = dvbstreamer dvbctrl setupdvbstreamer $(fstreamer_app) convertdvbd
 
 common_src = \
     main.c\
+    userconfig.c \
     tuning.c \
     ts.c\
     multiplexes.c\
@@ -102,7 +103,8 @@ endif
 #
 dvbctrl_SOURCES = \
     dvbctrl.c\
-    logging.c
+    logging.c \
+    userconfig.c
 
 dvbctrl_LDFLAGS =
 

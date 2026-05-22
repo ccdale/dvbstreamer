@@ -27,7 +27,8 @@ pkginclude_HEADERS = \
     utf8.h \
     messageq.h \
     deferredproc.h \
-    events.h
+    events.h \
+    userconfig.h
 
 
 EXTRA_DIST = $(pkginclude_HEADERS)

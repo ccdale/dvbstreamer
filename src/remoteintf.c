@@ -216,7 +216,7 @@ int RemoteInterfaceInit(int adapter, char *streamerName, char *bindAddress, char
     time(&serverStartTime);
     LogModule(LOG_INFO, REMOTEINTERFACE, "Server created %s", ctime(&serverStartTime));
     LogModule(LOG_DEBUG, REMOTEINTERFACE, "Username    : %s\n", authUsername);
-    LogModule(LOG_DEBUG, REMOTEINTERFACE, "Password    : %s\n", authPassword);
+    LogModule(LOG_DEBUG, REMOTEINTERFACE, "Password    : <hidden>\n");
     LogModule(LOG_DEBUG, REMOTEINTERFACE, "Server Name : %s\n", infoStreamerName);
 
     CommandRegisterCommands(RemoteInterfaceCommands);
