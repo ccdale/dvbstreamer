@@ -29,6 +29,7 @@ Setups the database for the main application.
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ctype.h>
 #include <getopt.h>
 #include <sys/unistd.h>
 #include <sys/stat.h>
@@ -100,7 +101,7 @@ static int EscapeJSONString(const char *input, char **output)
     size_t i;
     size_t outLen = 0;
     size_t inLen = strlen(input);
-    char *escaped = malloc((inLen * 2) + 1);
+    char *escaped = malloc((inLen * 6) + 1);
     if (escaped == NULL)
     {
         return 1;
@@ -108,11 +109,49 @@ static int EscapeJSONString(const char *input, char **output)
 
     for (i = 0; i < inLen; i++)
     {
-        if ((input[i] == '"') || (input[i] == '\\'))
+        unsigned char ch = (unsigned char)input[i];
+        switch (ch)
         {
-            escaped[outLen++] = '\\';
+            case '"':
+                escaped[outLen++] = '\\';
+                escaped[outLen++] = '"';
+                break;
+            case '\\':
+                escaped[outLen++] = '\\';
+                escaped[outLen++] = '\\';
+                break;
+            case '\b':
+                escaped[outLen++] = '\\';
+                escaped[outLen++] = 'b';
+                break;
+            case '\f':
+                escaped[outLen++] = '\\';
+                escaped[outLen++] = 'f';
+                break;
+            case '\n':
+                escaped[outLen++] = '\\';
+                escaped[outLen++] = 'n';
+                break;
+            case '\r':
+                escaped[outLen++] = '\\';
+                escaped[outLen++] = 'r';
+                break;
+            case '\t':
+                escaped[outLen++] = '\\';
+                escaped[outLen++] = 't';
+                break;
+            default:
+                if (iscntrl(ch))
+                {
+                    snprintf(&escaped[outLen], 7, "\\u%04x", ch);
+                    outLen += 6;
+                }
+                else
+                {
+                    escaped[outLen++] = (char)ch;
+                }
+                break;
         }
-        escaped[outLen++] = input[i];
     }
     escaped[outLen] = '\0';
     *output = escaped;
@@ -193,7 +232,12 @@ static int PromptAndWriteRemoteAuthConfig(void)
     }
 
     passwordInput = getpass("Password [control]: ");
-    if ((passwordInput == NULL) || (passwordInput[0] == '\0'))
+    if (passwordInput == NULL)
+    {
+        fprintf(stderr, "Warning: failed to read password input, using default.\n");
+        password = "control";
+    }
+    else if (passwordInput[0] == '\0')
     {
         password = "control";
     }
@@ -252,6 +296,16 @@ static int PromptAndWriteRemoteAuthConfig(void)
     fd = open(configPath, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd < 0)
     {
+        free(configDir);
+        free(configPath);
+        free(escapedUsername);
+        free(escapedPassword);
+        return 1;
+    }
+
+    if (fchmod(fd, S_IRUSR | S_IWUSR) != 0)
+    {
+        close(fd);
         free(configDir);
         free(configPath);
         free(escapedUsername);
